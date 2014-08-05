@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import copy
-from distutils.spawn import find_executable
+import distutils.spawn
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -113,6 +114,23 @@ class CallTree:
 
 context_managers.append(CallTree(results))
 
+class AlternateCwd:
+    def __enter__(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.old_cwd = os.getcwd()
+        os.chdir(self.tempdir)
+        return self
+        
+    def __exit__(self, type, error, traceback):
+        os.chdir(self.old_cwd)
+        shutil.rmtree(self.tempdir)
+
+
+    def find_executable(self, arg, path):
+        """ This class changes the cwd to an emptry directory to avoid
+        infinite loops"""
+        return distutils.spawn.find_executable(arg, path)
+
 def detect_next_path_instance(argv0, path):
     """ This will take an executable name and path and find the next
     instance of that executable on the path to return. 
@@ -121,16 +139,17 @@ def detect_next_path_instance(argv0, path):
     path_list = path.split(os.pathsep)
     basename = os.path.basename(argv0)
     initial_version = os.path.abspath(argv0)
-
     next_version = initial_version 
-    while(len(path_list) >= 1):
-        next_version = find_executable(basename, os.pathsep.join(path_list))
-        #print("found %s in %s" % (next_version, os.pathsep.join(path_list)))
-        if next_version is None:
-            raise PathError("Second version of %s not found on path %s" % (argv0, path_list))
-        if next_version != initial_version:
-            break
-        path_list.pop(0)
+
+    with AlternateCwd() as acwd:
+        while(len(path_list) >= 1):
+            next_version = acwd.find_executable(basename, os.pathsep.join(path_list))
+            print("found %s in %s" % (next_version, os.pathsep.join(path_list)))
+            if next_version is None:
+                raise PathError("Second version of %s not found on path %s" % (argv0, path_list))
+            if next_version != initial_version:
+                break
+            path_list.pop(0)
 
     if next_version == initial_version:
         raise PathError("Second version of %s not found on path after searching %s" % (argv0, path))
