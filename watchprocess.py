@@ -3,7 +3,6 @@
 import copy
 from distutils.spawn import find_executable
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -63,8 +62,8 @@ def rewrite_args_for_monitoring(args, path=None, env=None):
     return new_args, new_env
 
 new_args, new_env = rewrite_args_for_monitoring(sys.argv)
-print(">>>>Process Monitor Running %s on path %s" % (sys.argv, os.getenv('PATH')))
-print(">>>>Substituting %s on path %s" % (new_args, new_env['PATH']))
+print(">>>>Watchprocess Running %s on path %s" % (sys.argv, os.getenv('PATH')))
+print(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']))
 retcode = subprocess.call(new_args, env=new_env)
 
 
