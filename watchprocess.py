@@ -120,20 +120,17 @@ def detect_next_path_instance(argv0, path):
     Raises PathError if second location cannot be found. """
     path_list = path.split(os.pathsep)
     basename = os.path.basename(argv0)
-
-
-    if len(path_list) < 2:
-        raise PathError("Invalid path, too short for indirection: %s" % path)
     initial_version = os.path.abspath(argv0)
+
     next_version = initial_version 
-    while(len(path_list) > 1):
-        path_list.pop(0)
+    while(len(path_list) >= 1):
         next_version = find_executable(basename, os.pathsep.join(path_list))
         #print("found %s in %s" % (next_version, os.pathsep.join(path_list)))
         if next_version is None:
             raise PathError("Second version of %s not found on path %s" % (argv0, path_list))
         if next_version != initial_version:
             break
+        path_list.pop(0)
 
     if next_version == initial_version:
         raise PathError("Second version of %s not found on path after searching %s" % (argv0, path))
