@@ -29,9 +29,13 @@ class PathError(MonitorError):
     pass
 
 
+def debug(args):
+    if os.getenv('WATCHPROCESS_DEBUG', '0') in ['1', 'True', 'true']:
+        print(args)
 
 def basename_equal(path1, path2):
     return os.path.basename(path1) == os.path.basename(path2)
+
 
 config = {}
 results = {}
@@ -144,7 +148,7 @@ def detect_next_path_instance(argv0, path):
     with AlternateCwd() as acwd:
         while(len(path_list) >= 1):
             next_version = acwd.find_executable(basename, os.pathsep.join(path_list))
-            print("found %s in %s" % (next_version, os.pathsep.join(path_list)))
+            debug("found %s in %s" % (next_version, os.pathsep.join(path_list)))
             if next_version is None:
                 raise PathError("Second version of %s not found on path %s" % (argv0, path_list))
             if next_version != initial_version:
@@ -170,8 +174,8 @@ def rewrite_args_for_monitoring(args, path=None, env=None):
     return new_args, new_env
 
 new_args, new_env = rewrite_args_for_monitoring(sys.argv)
-print(">>>>Watchprocess Running %s on path %s" % (sys.argv, os.getenv('PATH')))
-print(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']))
+debug(">>>>Watchprocess Running %s on path %s" % (sys.argv, os.getenv('PATH')))
+debug(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']))
 
 with nested(*context_managers):
 
@@ -179,8 +183,8 @@ with nested(*context_managers):
     results['returncode'] = retcode
     results['command'] = new_args
 
-print ">>>>Watchprocess Results:"
+debug(">>>>Watchprocess Results:")
 for k, v in results.items():
-    print(">>>> %s: %s" % (k, v))
+    debug(">>>> %s: %s" % (k, v))
 
 sys.exit(retcode)
