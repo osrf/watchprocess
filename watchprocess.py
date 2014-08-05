@@ -17,6 +17,9 @@ import time
 # Resources
 import resource
 
+#CallTree
+import psutil
+
 class MonitorError(Exception):
     """ Base class for exceptions"""
     pass
@@ -57,7 +60,11 @@ class Resources:
     def __enter__(self):
         pass
     def __exit__(self, type, error, traceback):
-        usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+        try:
+            usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+        except resource.error as e:
+            print("Failed to get resource usage. Data will not be reported")
+            return
         self.results['user_cpu'] = usage.ru_utime
         self.results['system_cpu'] = usage.ru_stime
         self.results['resident_memory_size'] = usage.ru_maxrss
@@ -74,6 +81,37 @@ class Resources:
 
 
 context_managers.append(Resources(results))
+
+
+
+
+class CallTree:
+    def __init__(self, results):
+        self.results = results
+
+    def __enter__(self):
+        p = psutil.Process(os.getpid())
+        self.results['call_tree'] = self.call_tree(p)
+        
+    def __exit__(self, type, error, traceback):
+        pass
+
+    def call_tree(self, process):
+        parent = process.parent
+        if parent:
+            extension = self.call_tree(parent)
+        else:
+            extension = []
+        return extension + [self.process_info(process)] 
+
+    def process_info(self, process):
+        info = {}
+        info['name'] = process.name
+        info['pid'] = process.pid
+        info['commandline'] = process.cmdline
+        return info
+
+context_managers.append(CallTree(results))
 
 def detect_next_path_instance(argv0, path):
     """ This will take an executable name and path and find the next
@@ -122,7 +160,8 @@ print(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']
 with nested(*context_managers):
 
     retcode = subprocess.call(new_args, env=new_env)
-    
+    results['returncode'] = retcode
+    results['command'] = new_args
 
 print ">>>>Watchprocess Results:"
 for k, v in results.items():
