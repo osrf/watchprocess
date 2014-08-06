@@ -37,9 +37,6 @@ def basename_equal(path1, path2):
     return os.path.basename(path1) == os.path.basename(path2)
 
 
-config = {}
-results = {}
-context_managers = []
 
 class Timer:
 
@@ -55,7 +52,6 @@ class Timer:
         self.results['finish_time'] = finish_time
         self.results['elapsed_time'] = elapsed_time
 
-context_managers.append(Timer(results))
 
 
 class Resources:
@@ -85,7 +81,6 @@ class Resources:
         self.results['involuntary_context_switches'] = usage.ru_nivcsw
 
 
-context_managers.append(Resources(results))
 
 
 
@@ -116,7 +111,6 @@ class CallTree:
         info['commandline'] = process.cmdline
         return info
 
-context_managers.append(CallTree(results))
 
 class AlternateCwd:
     def __enter__(self):
@@ -172,6 +166,15 @@ def rewrite_args_for_monitoring(args, path=None, env=None):
     new_args[0] = next_version
     new_env['PATH'] = shortented_path
     return new_args, new_env
+
+config = {}
+results = {}
+context_managers = []
+
+context_managers.append(Timer(results))
+context_managers.append(Resources(results))
+context_managers.append(CallTree(results))
+
 
 new_args, new_env = rewrite_args_for_monitoring(sys.argv)
 debug(">>>>Watchprocess Running %s on path %s" % (sys.argv, os.getenv('PATH')))
