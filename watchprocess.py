@@ -217,32 +217,72 @@ def get_results_directory():
     return os.getenv('WATCHPROCESS_RESULTS_DIRECTORY', '/tmp/watchprocess')
 
 
-config = {}
-results = {}
-context_managers = []
-
-context_managers.append(Timer(results))
-context_managers.append(Resources(results))
-context_managers.append(CallTree(results))
 
 
-new_args, new_env = rewrite_args_for_monitoring(sys.argv)
-debug(">>>>Watchprocess Running %s on path %s" % (sys.argv, os.getenv('PATH')))
-debug(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']))
 
-with nested(*context_managers):
+def indirection_main(alternate_argv0 = None):
 
-    retcode = subprocess.call(new_args, env=new_env)
-    results['returncode'] = retcode
-    results['command'] = new_args
+    args = sys.argv
 
-debug(">>>>Watchprocess Results:")
-debug(generate_results_yaml(results))
-debug(">>>>End Watchprocess Results:")
+    if alternate_argv0:
+        args[0] = alternate_argv0
 
+    config = {}
+    results = {}
+    context_managers = []
 
-output_dir = get_results_directory()
-record_results(results, output_dir)
+    context_managers.append(Timer(results))
+    context_managers.append(Resources(results))
+    context_managers.append(CallTree(results))
 
 
-sys.exit(retcode)
+    new_args, new_env = rewrite_args_for_monitoring(args)
+    debug(">>>>Watchprocess Running %s on path %s" % (args, os.getenv('PATH')))
+    debug(">>>>Watchprocess Substituting %s on path %s" % (new_args, new_env['PATH']))
+
+    with nested(*context_managers):
+
+        retcode = subprocess.call(new_args, env=new_env)
+        results['returncode'] = retcode
+        results['command'] = new_args
+
+    debug(">>>>Watchprocess Results:")
+    debug(generate_results_yaml(results))
+    debug(">>>>End Watchprocess Results:")
+
+
+    output_dir = get_results_directory()
+    record_results(results, output_dir)
+
+
+    sys.exit(retcode)
+
+
+def standard_main():
+    #defered loading for speed
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process monitoring application')
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', default=False)
+
+    subparsers = parser.add_subparsers(help='subcommands of watchprocess')
+    cleanparser = subparsers.add_parser('clean')
+    cleanparser.add_argument('-y', action='store_true', default=False, 
+                             dest='yes', help="Do not propt user for confirmation")
+
+
+    collectparser = subparsers.add_parser('collect')
+    collectparser.add_argument('-y', action='store_true', default=False, 
+                             dest='yes', help="Do not propt user for confirmation")
+
+
+    args = parser.parse_args()
+
+    print(args)
+
+    sys.exit(0)
+
+if __name__ == '__main__':
+    if os.path.basename(sys.argv[0]) != 'watchprocess.py':
+        indirection_main()
+    standard_main()
