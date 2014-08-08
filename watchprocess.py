@@ -16,11 +16,14 @@
 
 import copy
 import distutils.spawn
+import errno
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import yaml
+
 
 # Known deprecated but no alternative with python 2 compatability. 
 from contextlib import nested
@@ -181,6 +184,39 @@ def rewrite_args_for_monitoring(args, path=None, env=None):
     new_env['PATH'] = shortented_path
     return new_args, new_env
 
+
+def verify_directory(directory):
+    # like makedir -p
+    if os.path.isdir(directory):
+        return
+    try:
+        os.makedirs(directory)
+    except OSError as e:
+        if e.errno == errno.EEXISST and os.path.isdir(directory):
+            pass
+        else:
+            raise e
+
+
+def generate_results_yaml(results):
+    yaml_content = yaml.dump(results, default_flow_style=False)
+    return yaml_content
+
+
+def record_results(results, directory):
+    verify_directory(directory)
+    filename = os.path.join(directory, 
+                            os.path.basename(results['command'][0]) + 
+                            '_' + ('%4f' % results['start_time']) + '.yaml')
+    yaml_results =  generate_results_yaml(results)
+    debug(">>>> Writing results to file %s" % filename)
+    with open(filename, 'w') as fh:
+        fh.write(yaml_results)
+
+def get_results_directory():
+    return os.getenv('WATCHPROCESS_RESULTS_DIRECTORY', '/tmp/watchprocess')
+
+
 config = {}
 results = {}
 context_managers = []
@@ -201,7 +237,12 @@ with nested(*context_managers):
     results['command'] = new_args
 
 debug(">>>>Watchprocess Results:")
-for k, v in results.items():
-    debug(">>>> %s: %s" % (k, v))
+debug(generate_results_yaml(results))
+debug(">>>>End Watchprocess Results:")
+
+
+output_dir = get_results_directory()
+record_results(results, output_dir)
+
 
 sys.exit(retcode)
