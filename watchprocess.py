@@ -270,18 +270,38 @@ def standard_main():
     cleanparser = subparsers.add_parser('clean')
     cleanparser.add_argument('-y', action='store_true', default=False, 
                              dest='yes', help="Do not propt user for confirmation")
+    cleanparser.set_defaults(func=clean_main)
 
 
     collectparser = subparsers.add_parser('collect')
     collectparser.add_argument('-y', action='store_true', default=False, 
                              dest='yes', help="Do not propt user for confirmation")
-
+    collectparser.set_defaults(func=collect_main)
 
     args = parser.parse_args()
-
-    print(args)
+    args.func(args)
 
     sys.exit(0)
+
+
+
+def clean_main(args):
+    results_dir = get_results_directory()
+    filelist = [ os.path.join(results_dir, f) for f in os.listdir(results_dir) if f.endswith('.yaml')]
+    
+    print("Running clean subcommand")
+    if not args.yes:
+        input_val = raw_input("Do you want to remove these files:\n %s \n Press y to remove these files:" % filelist)
+        if input_val != 'y':
+            print("you did not press y, I will not remove those files")
+            return
+    for f in filelist:
+        os.remove(f)
+    print("Removed %s files from %s" % (len(filelist), results_dir))
+
+def collect_main(args):
+    print("Running collect subcommand")
+
 
 if __name__ == '__main__':
     if os.path.basename(sys.argv[0]) != 'watchprocess.py':
