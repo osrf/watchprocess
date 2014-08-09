@@ -22,7 +22,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import yaml
 
 
 # Known deprecated but no alternative with python 2 compatability. 
@@ -199,7 +198,9 @@ def verify_directory(directory):
 
 
 def generate_results_yaml(results):
-    yaml_content = yaml.dump(results, default_flow_style=False)
+    yaml_content = ''
+    for k, v in results.items():
+        yaml_content += '%s: %s\n' % (k, v)
     return yaml_content
 
 
