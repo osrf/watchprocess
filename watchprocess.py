@@ -217,7 +217,10 @@ def record_results(results, directory):
 def get_results_directory():
     return os.getenv('WATCHPROCESS_RESULTS_DIRECTORY', '/tmp/watchprocess')
 
-
+def get_results_files():
+    results_dir = get_results_directory()
+    return [ os.path.join(results_dir, f) for f in os.listdir(results_dir) if f.endswith('.yaml')]
+    
 
 
 
@@ -276,6 +279,12 @@ def standard_main():
     collectparser = subparsers.add_parser('collect')
     collectparser.add_argument('-y', action='store_true', default=False, 
                              dest='yes', help="Do not propt user for confirmation")
+    collectparser.add_argument('--csv', action='store_true', default=False, 
+                             dest='csv', help="Output format csv")
+    collectparser.add_argument('--output-filename', '-O', action='store', default=None, 
+                             dest='output_file', help="Output filename, default stdout")
+    collectparser.add_argument('--filter-greater-than', action='append', nargs=2, default=None,
+                               help='(field_name, max_value) to filter results', dest='filters')
     collectparser.set_defaults(func=collect_main)
 
     args = parser.parse_args()
@@ -286,8 +295,7 @@ def standard_main():
 
 
 def clean_main(args):
-    results_dir = get_results_directory()
-    filelist = [ os.path.join(results_dir, f) for f in os.listdir(results_dir) if f.endswith('.yaml')]
+    filelist = get_results_files()
     
     print("Running clean subcommand")
     if not args.yes:
@@ -299,9 +307,68 @@ def clean_main(args):
         os.remove(f)
     print("Removed %s files from %s" % (len(filelist), results_dir))
 
-def collect_main(args):
-    print("Running collect subcommand")
 
+
+
+def csv_export(collected_results):
+
+    element_names = ['returncode', 'start_time', 'finish_time', 'elapsed_time', 'major_page_fault', 'user_cpu', 'system_cpu', 'resident_memory_size', 'package']
+
+    def results_entry(result):
+        
+        values = []
+        values.append(' '.join(result['command']))
+        for e in element_names:
+            if e in result:
+                values.append(str(result[e]))
+            else:
+                values.append(' ')
+        return ', '.join(values)
+
+    lines = []
+    legend = '#' + ', '.join(['command'] + element_names)
+    lines.append(legend)
+    for result in collected_results:
+        lines.append(results_entry(result))
+    
+
+    return '\n'.join(lines)
+
+def filter_match(results, filters):
+    """ Return true if the results match the filters"""
+    for f in filters:
+        if f[0] in results:
+            if results[f[0]] > float(f[1]):
+                return True
+    return False
+
+def collect_main(args):
+    # Deferred loading for speed
+    import yaml
+    filelist = get_results_files()
+    collected_results = []
+    for f in filelist:
+        try:
+            with open(f, 'r') as fh:
+                y = yaml.load(fh.read())
+                if args.filters:
+                    if filter_match(y, args.filters):
+                        collected_results.append(y)
+                else:
+                    collected_results.append(y)
+        except Exception as ex:
+            print("Failed to load %s, skipping. The errors was: %s" % (f, ex))
+
+    if args.csv:
+        output = csv_export(collected_results)
+    else:
+        output = yaml.dump(collected_results, default_flow_style=False)
+
+    if args.output_file:
+        with open(args.output_file, 'w') as fh:
+            fh.write(output)
+    else:
+        print(output)
 
 if __name__ == '__main__':
     if os.path.basename(sys.argv[0]) != 'watchprocess.py':
