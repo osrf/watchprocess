@@ -217,8 +217,7 @@ def record_results(results, directory):
 def get_results_directory():
     return os.getenv('WATCHPROCESS_RESULTS_DIRECTORY', '/tmp/watchprocess')
 
-def get_results_files():
-    results_dir = get_results_directory()
+def get_results_files(results_dir):
     return [ os.path.join(results_dir, f) for f in os.listdir(results_dir) if f.endswith('.yaml')]
     
 
@@ -295,7 +294,8 @@ def standard_main():
 
 
 def clean_main(args):
-    filelist = get_results_files()
+    results_dir = get_results_directory()
+    filelist = get_results_files(results_dir)
     
     print("Running clean subcommand")
     if not args.yes:
@@ -345,7 +345,8 @@ def filter_match(results, filters):
 def collect_main(args):
     # Deferred loading for speed
     import yaml
-    filelist = get_results_files()
+    results_dir = get_results_directory()
+    filelist = get_results_files(results_dir)
     collected_results = []
     for f in filelist:
         try:
