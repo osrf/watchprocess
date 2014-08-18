@@ -299,7 +299,7 @@ def clean_main(args):
     
     print("Running clean subcommand")
     if not args.yes:
-        input_val = raw_input("Do you want to remove these files:\n %s \n Press y to remove these files:" % filelist)
+        input_val = raw_input("Do you want to remove these files:\n %s \n Press y to remove these %s files:" % (filelist, len(filelist)))
         if input_val != 'y':
             print("you did not press y, I will not remove those files")
             return
