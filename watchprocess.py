@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 
+import yaml
 
 # Known deprecated but no alternative with python 2 compatability. 
 from contextlib import nested
@@ -209,7 +210,8 @@ def record_results(results, directory):
     filename = os.path.join(directory, 
                             os.path.basename(results['command'][0]) + 
                             '_' + ('%4f' % results['start_time']) + '.yaml')
-    yaml_results =  generate_results_yaml(results)
+    #yaml_results =  generate_results_yaml(results)
+    yaml_results = yaml.safe_dump(results, default_flow_style=False)
     debug(">>>> Writing results to file %s" % filename)
     with open(filename, 'w') as fh:
         fh.write(yaml_results)
