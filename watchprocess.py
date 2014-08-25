@@ -98,9 +98,25 @@ class Resources:
         self.results['involuntary_context_switches'] = usage.ru_nivcsw
 
 
+def get_cwd(process):
+    """ Get the cwd of a process catching 
+    AccessDenied exceptions """
+    try:
+        cwd =  process.getcwd()
+    except:
+        cwd = 'AccessDenied'
+    return cwd
 
 
+def detect_package_via_call_tree(call_tree):
+    """ Heuristic to detect a package if called via catkin_make_isolated """
+    for p in call_tree:
+        for arg in p['commandline']:
+            if 'cmi_env.py' in arg:
+                # Get the name of the directory before cmi_env.py
+                return os.path.basename(os.path.dirname(arg))
 
+    return None
 
 class CallTree:
     def __init__(self, results):
@@ -109,7 +125,11 @@ class CallTree:
     def __enter__(self):
         p = psutil.Process(os.getpid())
         self.results['call_tree'] = self.call_tree(p)
-        
+        self.results['cwd'] = get_cwd(p)
+
+        # heuristic to detect building package
+        self.results['package'] = detect_package_via_call_tree(self.results['call_tree'])
+
     def __exit__(self, type, error, traceback):
         pass
 
@@ -126,6 +146,7 @@ class CallTree:
         info['name'] = process.name
         info['pid'] = process.pid
         info['commandline'] = process.cmdline
+        info['cwd'] = get_cwd(process)
         return info
 
 
