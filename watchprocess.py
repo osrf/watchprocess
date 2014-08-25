@@ -22,10 +22,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-
 import yaml
 
-# Known deprecated but no alternative with python 2 compatability. 
+# Known deprecated but no alternative with python 2 compatability.
 from contextlib import nested
 
 
@@ -35,12 +34,14 @@ import time
 # Resources
 import resource
 
-#CallTree
+# CallTree
 import psutil
+
 
 class MonitorError(Exception):
     """ Base class for exceptions"""
     pass
+
 
 class PathError(MonitorError):
     pass
@@ -50,9 +51,9 @@ def debug(args):
     if os.getenv('WATCHPROCESS_DEBUG', '0') in ['1', 'True', 'true']:
         print(args)
 
+
 def basename_equal(path1, path2):
     return os.path.basename(path1) == os.path.basename(path2)
-
 
 
 class Timer:
@@ -60,8 +61,10 @@ class Timer:
     def __init__(self, results, max=None):
         self.timeout = max
         self.results = results
+
     def __enter__(self):
         self.start_time = time.time()
+
     def __exit__(self, type, error, traceback):
         finish_time = time.time()
         elapsed_time = (finish_time - self.start_time)
@@ -70,13 +73,13 @@ class Timer:
         self.results['elapsed_time'] = elapsed_time
 
 
-
 class Resources:
     def __init__(self, results):
         self.results = results
-        
+
     def __enter__(self):
         pass
+
     def __exit__(self, type, error, traceback):
         try:
             usage = resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -99,10 +102,10 @@ class Resources:
 
 
 def get_cwd(process):
-    """ Get the cwd of a process catching 
+    """ Get the cwd of a process catching
     AccessDenied exceptions """
     try:
-        cwd =  process.getcwd()
+        cwd = process.getcwd()
     except:
         cwd = 'AccessDenied'
     return cwd
@@ -117,6 +120,7 @@ def detect_package_via_call_tree(call_tree):
                 return os.path.basename(os.path.dirname(arg))
 
     return None
+
 
 class CallTree:
     def __init__(self, results):
@@ -139,7 +143,7 @@ class CallTree:
             extension = self.call_tree(parent)
         else:
             extension = []
-        return extension + [self.process_info(process)] 
+        return extension + [self.process_info(process)]
 
     def process_info(self, process):
         info = {}
@@ -156,39 +160,43 @@ class AlternateCwd:
         self.old_cwd = os.getcwd()
         os.chdir(self.tempdir)
         return self
-        
+
     def __exit__(self, type, error, traceback):
         os.chdir(self.old_cwd)
         shutil.rmtree(self.tempdir)
-
 
     def find_executable(self, arg, path):
         """ This class changes the cwd to an emptry directory to avoid
         infinite loops"""
         return distutils.spawn.find_executable(arg, path)
 
+
 def detect_next_path_instance(argv0, path):
     """ This will take an executable name and path and find the next
-    instance of that executable on the path to return. 
-    
+    instance of that executable on the path to return.
+
     Raises PathError if second location cannot be found. """
     path_list = path.split(os.pathsep)
     basename = os.path.basename(argv0)
     initial_version = os.path.abspath(argv0)
-    next_version = initial_version 
+    next_version = initial_version
 
     with AlternateCwd() as acwd:
         while(len(path_list) >= 1):
-            next_version = acwd.find_executable(basename, os.pathsep.join(path_list))
-            debug("found %s in %s" % (next_version, os.pathsep.join(path_list)))
+            next_version = acwd.find_executable(basename,
+                                                os.pathsep.join(path_list))
+            debug("found %s in %s" %
+                  (next_version, os.pathsep.join(path_list)))
             if next_version is None:
-                raise PathError("Second version of %s not found on path %s" % (argv0, path_list))
+                raise PathError("Second version of %s not found on path %s" %
+                                (argv0, path_list))
             if next_version != initial_version:
                 break
             path_list.pop(0)
 
     if next_version == initial_version:
-        raise PathError("Second version of %s not found on path after searching %s" % (argv0, path))
+        raise PathError("Second version of %s not found on"
+                        " path after searching %s" % (argv0, path))
     return next_version, os.pathsep.join(path_list)
 
 
@@ -228,25 +236,26 @@ def generate_results_yaml(results):
 
 def record_results(results, directory):
     verify_directory(directory)
-    filename = os.path.join(directory, 
-                            os.path.basename(results['command'][0]) + 
+    filename = os.path.join(directory,
+                            os.path.basename(results['command'][0]) +
                             '_' + ('%4f' % results['start_time']) + '.yaml')
-    #yaml_results =  generate_results_yaml(results)
+    # yaml_results =  generate_results_yaml(results)
     yaml_results = yaml.safe_dump(results, default_flow_style=False)
     debug(">>>> Writing results to file %s" % filename)
     with open(filename, 'w') as fh:
         fh.write(yaml_results)
 
+
 def get_results_directory():
     return os.getenv('WATCHPROCESS_RESULTS_DIRECTORY', '/tmp/watchprocess')
 
+
 def get_results_files(results_dir):
-    return [ os.path.join(results_dir, f) for f in os.listdir(results_dir) if f.endswith('.yaml')]
-    
+    return [os.path.join(results_dir, f) for f in os.listdir(results_dir)
+            if f.endswith('.yaml')]
 
 
-
-def indirection_main(alternate_argv0 = None):
+def indirection_main(alternate_argv0=None):
 
     args = sys.argv
 
@@ -260,7 +269,6 @@ def indirection_main(alternate_argv0 = None):
     context_managers.append(Timer(results))
     context_managers.append(Resources(results))
     context_managers.append(CallTree(results))
-
 
     new_args, new_env = rewrite_args_for_monitoring(args)
     debug(">>>>Watchprocess Running %s on path %s" % (args, os.getenv('PATH')))
@@ -276,37 +284,40 @@ def indirection_main(alternate_argv0 = None):
     debug(generate_results_yaml(results))
     debug(">>>>End Watchprocess Results:")
 
-
     output_dir = get_results_directory()
     record_results(results, output_dir)
-
 
     sys.exit(retcode)
 
 
 def standard_main():
-    #defered loading for speed
+    # defered loading for speed
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Process monitoring application')
-    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', default=False)
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
+                        default=False)
 
     subparsers = parser.add_subparsers(help='subcommands of watchprocess')
     cleanparser = subparsers.add_parser('clean')
-    cleanparser.add_argument('-y', action='store_true', default=False, 
-                             dest='yes', help="Do not propt user for confirmation")
+    cleanparser.add_argument('-y', action='store_true', default=False,
+                             dest='yes',
+                             help="Do not propt user for confirmation")
     cleanparser.set_defaults(func=clean_main)
 
-
     collectparser = subparsers.add_parser('collect')
-    collectparser.add_argument('-y', action='store_true', default=False, 
-                             dest='yes', help="Do not propt user for confirmation")
-    collectparser.add_argument('--csv', action='store_true', default=False, 
-                             dest='csv', help="Output format csv")
-    collectparser.add_argument('--output-filename', '-O', action='store', default=None, 
-                             dest='output_file', help="Output filename, default stdout")
-    collectparser.add_argument('--filter-greater-than', action='append', nargs=2, default=None,
-                               help='(field_name, max_value) to filter results', dest='filters')
+    collectparser.add_argument('-y', action='store_true', default=False,
+                               dest='yes',
+                               help="Do not propt user for confirmation")
+    collectparser.add_argument('--csv', action='store_true', default=False,
+                               dest='csv', help="Output format csv")
+    collectparser.add_argument('--output-filename', '-O', action='store',
+                               default=None, dest='output_file',
+                               help="Output filename, default stdout")
+    collectparser.add_argument('--filter-greater-than', action='append',
+                               nargs=2, default=None,
+                               help='(field_name, max_value) to filter results',
+                               dest='filters')
     collectparser.set_defaults(func=collect_main)
 
     args = parser.parse_args()
@@ -315,14 +326,15 @@ def standard_main():
     sys.exit(0)
 
 
-
 def clean_main(args):
     results_dir = get_results_directory()
     filelist = get_results_files(results_dir)
-    
+
     print("Running clean subcommand")
     if not args.yes:
-        input_val = raw_input("Do you want to remove these files:\n %s \n Press y to remove these %s files:" % (filelist, len(filelist)))
+        input_val = raw_input("Do you want to remove these files:\n %s \n"
+                              " Press y to remove these %s files:" %
+                              (filelist, len(filelist)))
         if input_val != 'y':
             print("you did not press y, I will not remove those files")
             return
@@ -331,14 +343,14 @@ def clean_main(args):
     print("Removed %s files from %s" % (len(filelist), results_dir))
 
 
-
-
 def csv_export(collected_results):
 
-    element_names = ['returncode', 'start_time', 'finish_time', 'elapsed_time', 'major_page_fault', 'user_cpu', 'system_cpu', 'resident_memory_size', 'package']
+    element_names = ['returncode', 'start_time', 'finish_time', 'elapsed_time',
+                     'major_page_fault', 'user_cpu', 'system_cpu',
+                     'resident_memory_size', 'package']
 
     def results_entry(result):
-        
+
         values = []
         values.append(' '.join(result['command']))
         for e in element_names:
@@ -353,9 +365,8 @@ def csv_export(collected_results):
     lines.append(legend)
     for result in collected_results:
         lines.append(results_entry(result))
-    
-
     return '\n'.join(lines)
+
 
 def filter_match(results, filters):
     """ Return true if the results match the filters"""
@@ -364,6 +375,7 @@ def filter_match(results, filters):
             if results[f[0]] > float(f[1]):
                 return True
     return False
+
 
 def collect_main(args):
     # Deferred loading for speed
